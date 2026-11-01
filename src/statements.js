@@ -2,14 +2,25 @@ const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', '
 const MONTH_PATTERN = MONTHS.join('|');
 const FULL_DATE = new RegExp(`\\b(\\d{1,2})\\s*(${MONTH_PATTERN})\\s*(20\\d{2})\\b`, 'i');
 const SHORT_DATE = new RegExp(`^(\\d{1,2})\\s*(${MONTH_PATTERN})$`, 'i');
-const MONEY = /^(-?)(\d{1,3}(?:,\d{3})+|\d+)\.(\d{2})\s*(CR|DR)?$/i;
+const MONEY = /^([+-]?)(\d{1,3}(?:,\d{3})+|\d+)\.(\d{2})\s*(CR|DR)?$/i;
 
 export function parseMoney(text) {
   const match = String(text).trim().match(MONEY);
   if (!match) return null;
-  return { amount: `${match[2].replaceAll(',', '')}.${match[3]}`, direction: match[1] || match[4]?.toUpperCase() === 'CR' ? 'credit' : 'debit' };
+  const sign = match[1];
+  const marker = match[4]?.toUpperCase() || '';
+  // 正负号与 CR/DR 互相矛盾时拒绝识别，留给解析报告提示，而不是猜一个方向。
+  if ((sign === '-' && marker === 'DR') || (sign === '+' && marker === 'CR')) return null;
+  const direction = marker === 'CR' || (!marker && sign === '-') ? 'credit' : 'debit';
+  return { amount: `${match[2].replaceAll(',', '')}.${match[3]}`, direction };
 }
-export const cents = amount => { const [whole, fraction = ''] = amount.split('.'); return BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0')); };
+export const cents = amount => {
+  const match = String(amount).match(/^(-?)(\d+)\.(\d{2})$/);
+  // 结单金额固定两位小数；多一位或少一位都不能静默截断成错误的“分”。
+  if (!match) throw new Error('结单金额必须为两位小数');
+  const value = BigInt(match[2]) * 100n + BigInt(match[3]);
+  return match[1] ? -value : value;
+};
 const decimal = value => `${value < 0n ? '-' : ''}${(value < 0n ? -value : value) / 100n}.${String((value < 0n ? -value : value) % 100n).padStart(2, '0')}`;
 const signedBalance = money => money.direction === 'credit' ? -cents(money.amount) : cents(money.amount);
 const compact = value => value.replace(/\s+/g, '');
@@ -84,6 +95,8 @@ export function parseStatementPages(pages, { sourceId, fileName }) {
     const dateMatch = headingText.match(FULL_DATE);
     if (dateMatch) statementDate = dateParts(Number(dateMatch[1]), MONTHS.indexOf(dateMatch[2].toUpperCase()), Number(dateMatch[3])) || '';
     const accountMatch = compact(headingText).match(/Accountnumber(\d{12,19})(HKD|RMB|CNY)Sub-?account/i);
+    // 部分版式会在页眉单独打印主卡卡号；它可能与账单账号不同，需优先采信。
+    const primaryCardNumber = compact(headingText.match(/(?:Primary\s+Card(?:\s+(?:Number|No\.?))?|Card\s+(?:Number|No\.?))\s*[:#]?\s*((?:\d[ ]*){12,19})/i)?.[1] || '');
     const headerCurrency = lines.filter(line => Math.abs(line.y - header.y) < 6).map(line => compact(line.text)).join('').match(/Amount\((HKD|CNY|RMB|USD)\)/i)?.[1]?.toUpperCase();
     const currency = (headerCurrency || accountMatch?.[2]?.toUpperCase())?.replace('RMB', 'CNY');
     if (!accountMatch || !statementDate || !currency) {
@@ -92,8 +105,9 @@ export function parseStatementPages(pages, { sourceId, fileName }) {
     }
     const last4 = accountMatch[1].slice(-4);
     const identity = `${accountKey(accountMatch[1])}:${currency}:${statementDate}`;
-    if (!sections.has(identity)) sections.set(identity, { id: identity, last4, currency, statementDate, opening: null, closing: null, transactionCount: 0, pages: [] });
+    if (!sections.has(identity)) sections.set(identity, { id: identity, last4, currency, statementDate, opening: null, closing: null, transactionCount: 0, primaryCardNumber: '', pages: [] });
     const section = sections.get(identity);
+    if (primaryCardNumber) section.primaryCardNumber = primaryCardNumber;
     section.pages.push(page.page);
     if (!activeCards.has(identity)) activeCards.set(identity, registerCard(accountMatch[1], currency, '', true));
     let previous = null;
@@ -101,7 +115,8 @@ export function parseStatementPages(pages, { sourceId, fileName }) {
       const cardHeading = line.text.match(/^(\d[\d ]{10,26}\d)\s+([A-Z][A-Z .'-]+)$/);
       if (cardHeading && /^\d{12,19}$/.test(compact(cardHeading[1]))) {
         const number = compact(cardHeading[1]);
-        activeCards.set(identity, registerCard(number, currency, cardHeading[2].trim(), number === accountMatch[1]));
+        const isPrimary = number === accountMatch[1] || number === section.primaryCardNumber;
+        activeCards.set(identity, registerCard(number, currency, cardHeading[2].trim(), isPrimary));
         previous = null;
         continue;
       }

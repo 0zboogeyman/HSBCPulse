@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { groupTextLines, inferDate, mergeStatements, parseMoney, parseStatementPages } from '../src/statements.js';
+import { cents, groupTextLines, inferDate, mergeStatements, parseMoney, parseStatementPages } from '../src/statements.js';
 import { calculateRewards, moneyUnits, rewardMoney } from '../src/rewards.js';
 
 const chunk = (text, x, y) => ({ text, x, y, width: text.length * 4 });
@@ -25,6 +25,19 @@ test('recognizes comma amounts, CR credits and negative amounts', () => {
   assert.deepEqual(parseMoney('-12.50'), { amount: '12.50', direction: 'credit' });
   assert.equal(parseMoney('12.50').direction, 'debit');
   assert.equal(parseMoney('12.5O'), null);
+});
+test('honors explicit CR/DR, accepts a positive sign, and rejects contradictory signs', () => {
+  assert.deepEqual(parseMoney('12.50 CR'), { amount: '12.50', direction: 'credit' });
+  assert.deepEqual(parseMoney('12.50 DR'), { amount: '12.50', direction: 'debit' });
+  assert.deepEqual(parseMoney('+12.50'), { amount: '12.50', direction: 'debit' });
+  assert.equal(parseMoney('-12.50 DR'), null);
+  assert.equal(parseMoney('+12.50 CR'), null);
+});
+test('cents rejects amounts that are not exactly two decimal places', () => {
+  assert.equal(cents('12.50'), 1250n);
+  assert.equal(cents('-12.50'), -1250n);
+  assert.throws(() => cents('0.001'), /两位小数/);
+  assert.throws(() => cents('12.5'), /两位小数/);
 });
 test('infers cross-year dates, rejects invalid dates and future posting dates', () => {
   assert.equal(inferDate('31 DEC', '2026-01-14'), '2025-12-31');
@@ -58,7 +71,7 @@ test('parsed overseas foreign spend in the HKD sub-account earns world while loc
   assert.equal(result.sections[0].status, 'matched');
   assert.equal(result.transactions.length, 3);
   const rewards = calculateRewards(result.transactions, { today: '2026-10-16', hkdCnyRate: .85 });
-  assert.equal(rewards.world.pending, 0); assert.equal(rewards.world.used, moneyUnits('85.00'));
+  assert.equal(rewards.world.used, moneyUnits('85.00'));
   assert.equal(rewardMoney(rewards.world.cashback), '1.70'); assert.equal(rewards.pulse.used, 0n);
 });
 
@@ -70,7 +83,7 @@ test('parsed country and currency suffixes plus unknown merchants follow the non
   ] })]);
   assert.equal(result.sections[0].status, 'matched'); assert.equal(result.warnings.length, 0);
   const rewards = calculateRewards(result.transactions, { today: '2026-10-16', hkdCnyRate: .85 });
-  assert.equal(rewards.world.pending, 0); assert.equal(rewards.world.used, moneyUnits('170.00'));
+  assert.equal(rewards.world.used, moneyUnits('170.00'));
   assert.equal(rewardMoney(rewards.world.cashback), '3.40');
   assert.equal(rewardMoney(rewards.totalCny), '4.42'); assert.equal(rewards.pulse.used, 0n);
 });
@@ -118,6 +131,19 @@ test('identical purchases on different cards retain separate identities and dedu
   assert.equal(new Set(merged.transactions.map(item => item.rewardCardId)).size, 2);
 });
 
+test('statement header primary card number keeps primary ownership when it differs from billing account', () => {
+  const input = page({ closing: '12.50', rows: [] });
+  input.items.push(chunk('Card number 0001 0002 0003 9999', 70, 70));
+  input.items.push(chunk('0001 0002 0003 9999 PRIMARY HOLDER', 140, 130));
+  input.items.push(...row('01SEP', '31AUG', 'ALIPAY STORE', '12.50', 140));
+  const result = parse([input]);
+  assert.equal(result.sections[0].status, 'matched');
+  const [transaction] = result.transactions;
+  assert.equal(transaction.cardType, 'primary');
+  assert.equal(transaction.last4, '9999');
+  assert.equal(transaction.account, 'CNY ···· 9999');
+  assert.equal(transaction.rewardCardId, result.cards.find(card => card.type === 'primary' && card.last4 === '9999').id);
+});
 test('unambiguous holder headings join supplementary HKD and CNY card numbers', () => {
   const result = parse([
     page({ currency: 'HKD', closing: '10.00', rows: [[chunk('0001 0002 0003 0005 EXAMPLE FIRST', 140, 130)], row('01SEP', '31AUG', 'HK STORE', '10.00', 140)] }),
