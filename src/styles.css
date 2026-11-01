@@ -13,3 +13,97 @@
 @media(max-width:780px){.rewards-card{padding:23px 22px 17px}.reward-name{min-height:50px}.reward-value>strong{font-size:26px}.reward-description{font-size:9px}.reward-cell{padding:0 16px}.rewards-scope,.reward-review{font-size:10px}}
 @media(max-width:580px){.rewards-card{padding:20px 17px 17px}.rewards-heading{align-items:flex-start;margin-bottom:20px;gap:9px}.rewards-heading h2{font-size:16px;gap:6px}.rewards-heading>div>p{font-size:9px;max-width:180px}.rewards-total>span{font-size:8px}.rewards-total>strong{font-size:20px}.rewards-total small{font-size:8px}.reward-columns{grid-template-columns:1fr}.reward-cell{padding:18px 0;border:0;border-top:1px solid var(--line)}.reward-cell:first-child{padding-top:0;border-top:0}.reward-cell:last-child{padding-bottom:0}.reward-name{min-height:0;flex-wrap:nowrap;align-items:center}.reward-name h3{font-size:13px}.reward-name>span{font-size:9px}.reward-value{margin-top:10px}.reward-value>strong{font-size:28px}.reward-value small{font-size:10px}.reward-description{min-height:0;font-size:10px;margin-top:7px}.reward-allowance{margin-top:17px}.allowance-label,.allowance-amount{font-size:10px}.reward-progress{height:6px}.reward-allowance>p,.refund-clawback{font-size:9px}.base-breakdown{display:flex;gap:8px 16px;flex-wrap:wrap;margin-top:13px;font-size:9px}.base-breakdown>div{gap:8px;line-height:1.9}.base-breakdown>p{font-size:9px;width:100%;margin-top:0}.reward-rate-row{margin-top:20px;align-items:flex-start;flex-wrap:nowrap}.reward-rate-row>div{gap:5px 10px;font-size:9px}.reward-rate-row button span{display:none}.reward-rate-row button{padding:5px}.rewards-scope,.reward-review{font-size:9px}.merchant-cell .payment-badge{font-size:8px}.rewards-total{max-width:45%;white-space:normal;overflow-wrap:anywhere}.rewards-total>strong{white-space:nowrap}.reward-adjustment{padding:13px}}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition:none!important}}
+
+/* 可读性调整：整体放大正文、表格、返现卡片和弹窗文字，保持信息层级与版式协调。 */
+body{font-size:16px;line-height:1.55}
+.utility,.utility-inner,.breadcrumb{font-size:12px}
+.brand{font-size:28px}
+.header nav{font-size:15px}
+.header-settings{font-size:14px}
+h1,.intro h1{font-size:clamp(28px,1.6vw + 20px,38px);line-height:1.22}
+.intro p{font-size:15px;line-height:1.65}
+.intro-tag{font-size:13px}
+h2,.section-heading h2,.transaction-heading h2,.rewards-heading h2{font-size:20px;line-height:1.35}
+.connect-panel h2{font-size:22px;line-height:1.35}
+.muted,.connect-panel>.muted{font-size:14px;line-height:1.6}
+label,.connect-panel form label,.modal form>label,.advanced-filters label,.reward-adjustment>label:not(.refund-option){font-size:13px}
+.connect-panel input,.modal input,.modal select,.search-field input,.filter-toolbar>select,.advanced-filters input,.advanced-filters select,.currency-selector select,.reward-adjustment>select{font-size:14px}
+.button,.export-button,.filter-button,.text-button,.demo-button,.source-button{font-size:13px}
+.field-caption,.input-help,.demo-divider,.demo-caption,.connection-dot,.currency-selector,.count-badge,.filter-error,.table-footer,.pagination,.connection-note p,.connection-note button,.demo-banner,.notice,.review-banner,.modal-description,.detail-note,.file-hint,.file-error,.file-actions button{font-size:12px;line-height:1.55}
+.section-heading p,.transaction-heading p{font-size:12px;line-height:1.55}
+.drop-zone small,.estimate-tag{font-size:11px}
+.reward-rate-row>div,.rate-date{font-size:11px}
+.stat-note,.count-cell .stat-note{font-size:11px}
+.error-banner strong{font-size:14px}
+.error-banner p{font-size:13px;line-height:1.55}
+.demo-label{font-size:11px}
+.privacy-panel h3{font-size:14px}
+.privacy-panel p{font-size:12px;line-height:1.6}
+.file-name strong,.file-status{font-size:12px}
+.file-hint,.file-error,.file-actions button{font-size:11px}
+.stat-label{font-size:12px}
+.stat-amount{font-size:30px}
+.stat-amount small{font-size:11px}
+.stat-note,.currency-note{font-size:11px;line-height:1.5}
+table{font-size:13px}
+th,th button{font-size:12px}
+.date-cell{font-size:14px}
+.date-cell>span{font-size:11px}
+.merchant-cell strong{font-size:14px}
+.merchant-cell div>span{font-size:11px}
+.reference{font-size:10px}
+.status{font-size:11px}
+.amount-cell>span{font-size:14px}
+.amount-cell>small{font-size:11px}
+.merchant-cell .payment-badge{font-size:10px}
+.reward-card-number{font-size:12px}
+.rewards-heading>div>p{font-size:12px;line-height:1.5}
+.rewards-total>span{font-size:12px}
+.rewards-total>strong{font-size:26px}
+.rewards-total small{font-size:11px}
+.reward-name h3{font-size:14px}
+.reward-name>span{font-size:11px}
+.reward-value small{font-size:11px}
+.reward-value>strong{font-size:28px}
+.reward-description{font-size:11px;line-height:1.5}
+.allowance-label,.allowance-amount{font-size:11px}
+.reward-allowance>p,.refund-clawback,.pulse-period,.rate-error,.rewards-scope,.reward-review{font-size:11px;line-height:1.5}
+.reward-rate-row,.reward-rate-row button{font-size:11px}
+.reward-rules{font-size:12px}
+.reward-rules p{font-size:12px;line-height:1.65}
+.base-breakdown,.base-breakdown>p{font-size:11px;line-height:1.6}
+.reward-adjustment h3{font-size:14px}
+.reward-adjustment>p{font-size:13px;line-height:1.65}
+.reward-adjustment .adjustment-note{font-size:11px;line-height:1.55}
+.reward-adjustment .refund-option{font-size:12px}
+.report-summary strong{font-size:14px}
+.report-summary p{font-size:12px}
+.reconciliation strong{font-size:14px}
+.reconciliation>div>span{font-size:11px}
+.reconciliation>p{font-size:11px;line-height:1.55}
+.reconciliation dl>div{font-size:13px}
+.report-success{font-size:11px}
+.report-warnings h3{font-size:14px}
+.report-warnings>div{font-size:12px;line-height:1.55}
+.report-warnings pre,.source-text pre{font-size:11px;line-height:1.6}
+.source-text h3{font-size:13px}
+.source-text p{font-size:11px;line-height:1.55}
+.source-button>span{font-size:12px}
+.source-button small{font-size:11px}
+.modal h2{font-size:24px}
+.modal-description{font-size:14px;line-height:1.6}
+.help-content h3{font-size:15px}
+.help-content p{font-size:14px;line-height:1.75}
+.detail-amount{font-size:34px}
+.detail-amount small{font-size:14px}
+.detail-list>div{font-size:14px;line-height:1.55}
+.footer .brand{font-size:18px}
+.footer-inner>div>span{font-size:12px}
+.footer-inner p{font-size:11px;line-height:1.55}
+.footer-inner>button{font-size:12px}
+.empty-state h3{font-size:18px}
+.empty-state p{font-size:14px;line-height:1.65}
+@media(max-width:1050px){.rewards-total>strong{font-size:24px}.reward-value>strong{font-size:26px}.stat-amount{font-size:28px}}
+@media(max-width:780px){.brand{font-size:24px}.header nav{font-size:14px}.intro h1{font-size:clamp(28px,4.2vw,32px)}.stat-amount{font-size:27px}.rewards-heading h2{font-size:19px}.rewards-total>strong{font-size:23px}.reward-value>strong{font-size:26px}}
+@media(max-width:580px){.connect-panel h2{font-size:20px}.rewards-heading h2{font-size:18px}.rewards-total>strong{font-size:22px}.reward-value>strong{font-size:26px}.reward-description{font-size:11px}.stat-amount{font-size:26px}.modal h2{font-size:21px}.detail-amount{font-size:30px}.reward-adjustment>p{font-size:13px}}
+@media(max-width:480px){.brand{font-size:22px}.header nav{font-size:13px}.header-settings{font-size:13px}.intro h1{font-size:28px}.intro p{font-size:14px}.connect-panel h2{font-size:19px}.stat-amount{font-size:25px}.detail-amount{font-size:28px}.table-footer,.pagination{font-size:11px}}
