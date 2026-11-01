@@ -1,14 +1,10 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "hsb-check",
+  "name": "hsbcpulse",
   "compatibility_date": "2026-10-16",
-  "workers_dev": false,
+  "workers_dev": true,
   "preview_urls": false,
   "assets": {
-    "directory": "./dist",
-    "not_found_handling": "single-page-application"
-  },
-  "routes": [
-    { "pattern": "pulse.cbshuimu.net", "custom_domain": true }
-  ]
+    "directory": "./dist"
+  }
 }
