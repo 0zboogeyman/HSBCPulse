@@ -38,11 +38,26 @@ export function worldEligibility(transaction, override = {}) {
   const lines = text.toUpperCase().split('\n').map(line => line.trim());
   // 原币种和金额可紧接国家代码，也可在续行；金额不用于返现计算。
   const currencyAmount = /\b([A-Z]{3})\s+\d[\d,]*(?:\.\d+)?$/;
-  // 优先使用明确的商户国家代码；仅从行尾（可带原币种金额）读取地区。
-  const explicitCountry = String(transaction.merchantCountryCode || '').trim().toUpperCase();
-  const country = explicitCountry || text.match(/\bMERCHANT\s+COUNTRY(?:\s+CODE)?\s*[:=]\s*([A-Z]{2,3}|\d{3})\b/i)?.[1]?.toUpperCase()
-    || lines.map(line => line.replace(currencyAmount, '').trim().match(/\b([A-Z]{2,3})$/)?.[1]).find(code => countryRegion(code)) || '';
-  const region = ['hongKong', 'mainland', 'macau', 'overseas'].includes(override.merchantRegion) ? override.merchantRegion : countryRegion(country);
+  const declaredCountry = text.match(/\bMERCHANT\s+COUNTRY(?:\s+CODE)?\s*[:=]\s*([A-Z]{2,3}|\d{3})\b/i)?.[1]?.toUpperCase() || '';
+  // 显式字段优先；其次只接受结单中常见的“ISO3 + 二字码/数字码”成对结构；
+  // 单个行尾二字码置信度低，只用于赏世界地区估算，不用于 PULSE 专属奖赏。
+  let country = String(transaction.merchantCountryCode || '').trim().toUpperCase() || declaredCountry;
+  let regionSource = country ? 'explicit' : '';
+  if (!country) {
+    for (const line of lines) {
+      const structured = line.replace(currencyAmount, '').trim().match(/\b([A-Z]{3})\s+([A-Z]{2}|\d{3})$/);
+      if (structured && countryRegion(structured[2])) { country = structured[2]; regionSource = 'structured'; break; }
+    }
+  }
+  if (!country) {
+    for (const line of lines) {
+      const suffix = line.replace(currencyAmount, '').trim().match(/\b([A-Z]{2,3})$/)?.[1];
+      if (suffix && countryRegion(suffix)) { country = suffix; regionSource = 'suffix'; break; }
+    }
+  }
+  const manualRegion = ['hongKong', 'mainland', 'macau', 'overseas'].includes(override.merchantRegion);
+  const region = manualRegion ? override.merchantRegion : countryRegion(country);
+  if (manualRegion) regionSource = 'manual';
   // 双币结单的 currency 为入账币种；海外外币可能已折算为 HKD。
   const originalCurrency = (override.originalCurrency || transaction.originalCurrency || text.match(/\b(?:ORIGINAL\s+(?:TRANSACTION\s+)?CURRENCY|TRANSACTION\s+CURRENCY)\s*[:=]?\s*([A-Z]{3})\b/i)?.[1]?.toUpperCase()
     || lines.map(line => line.match(currencyAmount)?.[1]).find(Boolean)
@@ -52,8 +67,9 @@ export function worldEligibility(transaction, override = {}) {
   const eligible = region !== 'hongKong' && originalCurrency !== 'HKD';
   const reason = !eligible ? '香港商户或原交易为港币，不计赏世界'
     : !region || !originalCurrency ? '未识别为香港商户，按非 HKG HK 规则默认计入赏世界 5x，可手动修正'
+    : regionSource === 'suffix' ? '香港以外商户的外币交易；行尾地区码仅用于赏世界估算，PULSE 专属需在详情确认地区'
     : '香港以外商户的外币交易，计入赏世界 5x';
-  return { region, originalCurrency, eligible, reason };
+  return { region, originalCurrency, eligible, reason, regionSource: region ? regionSource || 'unknown' : 'unknown' };
 }
 export function rewardExclusionReason(transaction) {
   if (!['CNY', 'HKD'].includes(transaction.currency)) return '当前返现规则不涵盖此币种';
@@ -75,7 +91,10 @@ function detectPaymentChannel(transaction, override = 'auto') {
 export function paymentChannel(transaction, override = 'auto', details = {}) {
   const channel = detectPaymentChannel(transaction, override);
   const world = worldEligibility(transaction, details);
-  const pulse = channel.pulse && transaction.currency === 'CNY' && ['mainland', 'macau'].includes(world.region) && world.eligible === true;
+  // PULSE 专属奖赏要求可核实的地区：显式字段、结单结构化地区码或手动修正。
+  // 单个行尾二字码可能只是商户名的一部分，不能直接多给 2%。
+  const pulseEligible = ['explicit', 'structured', 'manual'].includes(world.regionSource);
+  const pulse = channel.pulse && transaction.currency === 'CNY' && ['mainland', 'macau'].includes(world.region) && world.eligible === true && pulseEligible;
   const nominalRate = channel.key === 'exclude' ? '0%' : `${0.4 + (world.eligible ? 2 : 0) + (pulse ? 2 : 0)}%`;
   return { ...channel, pulse, world, nominalRate,
     label: channel.key !== 'exclude' && transaction.currency === 'HKD' && world.eligible ? '非香港消费' : channel.label };
@@ -121,7 +140,7 @@ export function calculateRewards(transactions, { today = hongKongToday(), hkdCny
   const pulseSpend = [0n, 0n];
   let cnyGross = 0n, cnyRefunds = 0n, hkdGross = 0n, hkdRefunds = 0n;
   let pulseGross = 0n, worldGross = 0n, worldRefunds = 0n, pulseRefunds = 0n;
-  let worldPending = 0, worldConversionPending = 0;
+  let worldConversionPending = 0;
   const validRate = typeof hkdCnyRate === 'number' && Number.isFinite(hkdCnyRate) && hkdCnyRate > 0 && hkdCnyRate < 1000;
   const rate = validRate ? BigInt(Math.round(hkdCnyRate * Number(FX_SCALE))) : null;
   const toCny = amount => rate ? (amount * rate + FX_SCALE / 2n) / FX_SCALE : null;
@@ -143,7 +162,6 @@ export function calculateRewards(transactions, { today = hongKongToday(), hkdCny
     const amount = moneyUnits(transaction.amount);
     const credit = transaction.direction === 'credit';
     included++;
-    if (channel.world.eligible === null) worldPending++;
     if (channel.world.eligible && (!credit || !override.refundBaseOnly)) {
       const worldAmount = transaction.currency === 'HKD' ? toCny(amount) : amount;
       if (worldAmount === null) worldConversionPending++;
@@ -173,7 +191,7 @@ export function calculateRewards(transactions, { today = hongKongToday(), hkdCny
   // 没有可靠汇率时保留 null，避免把无法折算的港币返现显示为零。
   const hkdConvertedCny = hkdBase === 0n ? 0n : rate ? (hkdBase * rate + FX_SCALE / 2n) / FX_SCALE : null;
   const baseTotal = hkdConvertedCny === null ? null : cnyBase + hkdConvertedCny;
-  const world = { ...bonusPool(worldGross, worldRefunds), pending: worldPending, conversionPending: worldConversionPending };
+  const world = { ...bonusPool(worldGross, worldRefunds), conversionPending: worldConversionPending };
   if (worldConversionPending) world.cashback = null;
   const periods = pulseSpend.map((gross, index) => ({
     ...bonusPool(gross, 0n, PULSE_HALF_YEAR_CAP),

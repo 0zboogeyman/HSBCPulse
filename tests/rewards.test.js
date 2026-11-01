@@ -59,7 +59,7 @@ test('Hong Kong merchants and original HKD transactions never earn world, even w
 test('missing world metadata defaults to world and manual region or currency corrections take priority', () => {
   const item = transaction({ merchantCountryCode: '', description: 'ALIPAY' });
   const pending = calculate([item]);
-  assert.equal(pending.world.pending, 0); assert.equal(pending.world.used, moneyUnits('100.00'));
+  assert.equal(pending.world.used, moneyUnits('100.00'));
   assert.equal(rewardMoney(pending.base.totalCny), '0.40');
   assert.equal(rewardMoney(pending.totalCny), '2.40');
   assert.equal(pending.pulse.used, 0n);
@@ -68,7 +68,6 @@ test('missing world metadata defaults to world and manual region or currency cor
   assert.equal(rewardMoney(calculate([item], { overrides }).world.cashback), '2.00');
   assert.equal(paymentChannel(item, 'auto', overrides[1]).nominalRate, '2.4%');
   const hkBilled = { ...item, currency: 'HKD', merchantCountryCode: 'JP' };
-  assert.equal(calculate([hkBilled]).world.pending, 0);
   assert.equal(rewardMoney(calculate([hkBilled]).totalCny), '2.04');
   assert.equal(rewardMoney(calculate([hkBilled], { overrides: { 1: { originalCurrency: 'FOREIGN' } } }).world.cashback), '1.70');
   assert.equal(calculate([hkBilled], { overrides: { 1: { originalCurrency: 'HKD' } } }).world.used, 0n);
@@ -101,6 +100,25 @@ test('statement suffixes read country before optional currency and amount using 
   assert.equal(worldEligibility({ ...item, description: 'EXAMPLE CN SHOP', notes: ['KHM KH', 'USD 6.75'] }).region, 'overseas');
 });
 
+test('single trailing country suffixes do not grant Pulse; explicit, structured and manual regions do', () => {
+  for (const [description, region] of [['EXAMPLE STORE MO', 'macau'], ['7-ELEVEN IN', 'overseas'], ['SHOP CN', 'mainland'], ['SHOP MO', 'macau']]) {
+    const item = transaction({ merchantCountryCode: '', description, notes: ['APPLE PAY'], currency: 'CNY' });
+    const world = worldEligibility(item);
+    const channel = paymentChannel(item);
+    assert.equal(world.region, region, description);
+    assert.equal(world.regionSource, 'suffix', description);
+    assert.equal(channel.pulse, false, description);
+    assert.equal(channel.nominalRate, '2.4%', description);
+  }
+  const structured = transaction({ merchantCountryCode: '', description: 'EXAMPLE STORE MAC MO', notes: ['APPLE PAY'], currency: 'CNY' });
+  assert.equal(worldEligibility(structured).regionSource, 'structured');
+  assert.equal(paymentChannel(structured).pulse, true);
+  assert.equal(paymentChannel(structured).nominalRate, '4.4%');
+  const explicit = transaction({ merchantCountryCode: 'MO', notes: ['APPLE PAY'], currency: 'CNY' });
+  assert.equal(paymentChannel(explicit).pulse, true);
+  const manual = transaction({ merchantCountryCode: '', description: 'EXAMPLE STORE', notes: ['APPLE PAY'], currency: 'CNY' });
+  assert.equal(paymentChannel(manual, 'auto', { merchantRegion: 'macau' }).pulse, true);
+});
 test('unknown country codes default to world without being treated as mainland or Macau for Pulse', () => {
   for (const merchantCountryCode of ['', 'XXX', 'KHM']) {
     const item = transaction({ merchantCountryCode, description: 'EXAMPLE STORE', notes: ['APPLE PAY'] });
@@ -184,7 +202,7 @@ test('unrecognized mainland merchant descriptions automatically earn 2.4% and ex
   const local = calculate([{ ...item, merchantCountryCode: 'HK' }]);
   assert.equal(local.world.used, 0n); assert.equal(rewardMoney(local.totalCny), '0.40');
   const unknownRegion = calculate([{ ...item, description: 'EXAMPLE WALLET' }]);
-  assert.equal(unknownRegion.world.pending, 0); assert.equal(rewardMoney(unknownRegion.totalCny), '2.40');
+  assert.equal(rewardMoney(unknownRegion.totalCny), '2.40');
 });
 
 test('unposted transactions are excluded for both currencies even with a confirmed payment channel', () => {

@@ -5,7 +5,7 @@ export function PaymentBadge({ transaction, override }) {
   if (rewardExclusionReason(transaction)) return null;
   const channel = paymentChannel(transaction, override?.channel, override);
   if (channel.key !== 'exclude' && rewardPendingReason(transaction)) return <span className="payment-badge">交易待入账 · 暂不计返现</span>;
-  return <span className={`payment-badge ${channel.pulse ? 'payment-pulse' : ''}`}>{channel.label}{channel.key === 'exclude' ? '' : ` · ${channel.nominalRate}（封顶前）`}{channel.uncertain ? ' · 按普通消费估算' : ''}{channel.world.eligible === null && channel.key !== 'exclude' ? ' · 赏世界待确认' : ''}{channel.manual ? ' · 已确认' : ''}</span>;
+  return <span className={`payment-badge ${channel.pulse ? 'payment-pulse' : ''}`}>{channel.label}{channel.key === 'exclude' ? '' : ` · ${channel.nominalRate}（封顶前）`}{channel.uncertain ? ' · 按普通消费估算' : ''}{channel.manual ? ' · 已确认' : ''}</span>;
 }
 
 export default function RewardAdjustment({ transaction, value = {}, onChange }) {
